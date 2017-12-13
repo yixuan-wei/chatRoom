@@ -28,9 +28,9 @@ def server(HOST, PORT):
         print('Listening at', s.getsockname())
         sc, sockname = s.accept()  # wait here until there is a request
         # get the length of the message first
-        msg_length = int(recv_all(sc, 3))
+        msg_length = int(recv_all(sc, 12))
         # get the 'real' message with proper length
         message = recv_all(sc, msg_length)
-        print('Client said: ', repr(message))
-        sc.sendall('Bye')
+        print('Client said: ', message)
+        sc.sendall(bytes('Bye',encoding='utf8'))
         sc.close()

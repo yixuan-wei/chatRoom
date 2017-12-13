@@ -27,10 +27,10 @@ def client(HOST, PORT):
         sys.exit(1)
     msg = input('Please enter your message: ')
     # determine the message length (max 255 characters, i.e. 3 digits), pad with leading zeroes
-    msg_length_in_str = str(len(msg))
-    msg_length_in_str = msg_length_in_str.zfill(3)
+    msg_length_in_str = str(len(bytes(msg,encoding='utf-8')))
+    msg_length_in_str = msg_length_in_str.zfill(12)
 
-    s.sendall(msg_length_in_str + msg)  # add the length at the beginning of the message
+    s.sendall(bytes(msg_length_in_str + msg,encoding='utf-8'))  # add the length at the beginning of the message
     reply = recv_all(s, 3)
     print('Server:', repr(reply))
     s.close()
