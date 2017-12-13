@@ -1,4 +1,5 @@
-from client import client
+#coding:utf-8
+from client import clientsock
 from server import server
 from threading import Thread
 
@@ -8,4 +9,5 @@ if __name__=='__main__':
     sthread = Thread(target=server,args=(host,port))
     sthread.daemon = True
     sthread.start()
-    Thread(target=client,args=(host,port)).start()
+    client = clientsock()
+    Thread(target=client.main,args=(host,port)).start()
