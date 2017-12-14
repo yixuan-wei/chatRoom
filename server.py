@@ -4,7 +4,7 @@ from common import recv_all
 import threading
 
 
-class serversock:
+class serversock():
     # store all the users' nicknames
     mydict = dict()
     # All the users connected to the server
