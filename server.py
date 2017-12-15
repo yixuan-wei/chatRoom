@@ -69,15 +69,15 @@ class serversock:
         client_conn,client_addr = ss.accept()  # 响应一个client的连接请求, 建立一个连接,可以用来传输数据
         try:
             # 向client端发送欢迎信息
-            client_conn.send("welcome to chatroom,pls set up your nick name!")
+            client_conn.send(b"welcome to chatroom,pls set up your nick name!")
             client_name = client_conn.recv(1024) #接收client发来的昵称,最大接收字符为1024
             self.inputs.append(client_conn)
             self.fd_name[client_conn] = client_name  # 将连接/连接名 加入键值对
-            client_conn.send("current members in chatroom are: %s" % self.fd_name.values())
+            client_conn.send(("current members in chatroom are: %s" % self.fd_name.values()).encode())
             # 向所有连接发送新成员加入信息
             for other in self.fd_name.keys():
                 if other != client_conn and other != ss:
-                    other.send(self.fd_name[client_conn]+" joined the chatroom!")
+                    other.send((self.fd_name[client_conn]+" joined the chatroom!").encode())
         except Exception as e:
             print(e)
             ''' # get the length of the message first
@@ -124,9 +124,10 @@ class serversock:
                     disconnect = False
                     try:
                         data = r.recv(4096)
-                        data = self.fd_name[r] + " : " + data #确定客户端昵称
+                        #  TODO error: can't concat str to bytes
+                        data = (self.fd_name[r] + " : " + data.decode()).encode() #确定客户端昵称
                     except socket.error:
-                        data = self.fd_name[r] + " leaved the room"
+                        data = bytes(self.fd_name[r] + " leaved the room")
                         disconnect = True
                     else:
                         pass
