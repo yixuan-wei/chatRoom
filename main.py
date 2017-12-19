@@ -10,27 +10,25 @@ import os  # for os.system
 import ast  #For ast.literal_eval()
 import sys
 
-# TODO server挂掉client的处理
+# TODO server挂掉client的处理,即connection reset by peer
 # TODO socket.connect refused的错误处理
 # TODO tk & ttk格式全错
-# TODO send中str改byte :已在sending和cliented函数中修改，加入encode()和decode()
+# TODO 客户端突然退出
 
 
-# TODO 改变头处理，配合信息格式254行，109，140
-# TODO 数据编码处理函数data_encoder()
 def data_encoder(data):
     rest = len(data)
     i = 0
     res = b''
     while True:
-        restflag = rest / (1<<12)
-        if restflag:
-            res += bytes(1) + bytes(4096) + data[i:i+4095]
+
+        if rest>4096:
+            res += '1'.encode() +'4096'.encode() + data[i:i+4096]
             i += 4096
-            rest %= (1<<12)
+            rest -= 4096
         else:
-            rest %= (1<<12)
-            res += bytes(0) + bytes(rest.zfill(12)) + data[i:]
+            rest = str(rest)
+            res += '0'.encode() + rest.zfill(12).encode() + data[i:]
             break
     return res
 
@@ -117,7 +115,7 @@ class window(tk.Tk):
         self.title('Chat Room Server Log')
 
         self.host = '127.0.0.1'
-        self.port = '8088'
+        self.port = 8088
         self.log_frame = ttk.Frame(self)
 
         self.log_frame.style = ttk.Style()
@@ -145,6 +143,7 @@ class window(tk.Tk):
 
     def serverd(self):
         self.server_socket.listen(5)
+
         self.should_quit = False
         self.protocol('WM_DELETE_WINDOW', self.server_quit)
 
@@ -153,26 +152,23 @@ class window(tk.Tk):
                 client, addr = self.server_socket.accept()
                 client.settimeout(1.0)
 
-                #first_data = client.recv(1024)
-                #  TODO head processing，配合17，140，254
-                #nick = get_nick(first_data)
-                firstbyte = bytes(1)
+                firstbyte = '1'.encode()
                 senderflag = 1
                 message = ""
-                while firstbyte:
+                while firstbyte==b'1':
                     firstbyte = client.recv(1)
                     length = client.recv(12)
-                    data = client.recv(length)
-                    # TODO 消息格式
+                    data = client.recv(int(length.decode()))
+
                     if senderflag :
                         nick = get_nick(data.decode()) #已经是string格式
                         senderflag = 0
-                        if firstbyte == 0:
+                        if firstbyte == b'0':
                             message += get_message_end(data.decode()) # 已经是string格式
                         else:
                             message += get_message_unend(data.decode()) # 已经是string格式
                     else:
-                        if firstbyte == 0:
+                        if firstbyte == b'0':
                             message += get_message_end(data.decode()) # 已经是string格式
                         else:
                             message += get_message_unend(data.decode()) # 已经是string格式
@@ -185,7 +181,8 @@ class window(tk.Tk):
                 self.client_sockets[nick] = client
 
                 for name in self.client_sockets:
-                    self.client_sockets[name].sending('clientlist:' + str(self.client_sockets.keys()))
+                    #TODO 送出去的keys()不是单纯的[]而是dict_keys()
+                    self.client_sockets[name].send(('clientlist:' + str(self.client_sockets.keys())).encode())
 
                 t = Thread(name='client {0}'.format(nick), target=self.socket_comm, args=(addr,))
 
@@ -202,17 +199,24 @@ class window(tk.Tk):
         while not self.should_quit:
             r, _, _ = select.select([csocket], [], [])
             if r:
-                data = csocket.recv(1024)
+
+                firstbyte = '1'.encode()
+
+                data=b''
+                while firstbyte == b'1':
+                    firstbyte = csocket.recv(1)
+                    length = csocket.recv(12)
+                    data += csocket.recv(int(length.decode()))
 
                 if len(data):
                     # TODO 修改成聊天室模式，配合17，104，254行
                     dest = get_dest(data)
-                    if self.client_sockets.has_key(dest):
+                    if self.client_sockets.__contains__(dest):
                         self.server_log.config(state=tk.NORMAL)
                         self.server_log.insert(tk.END, 'Sending msg from {0} to {1}\n'.format(nick, dest))
                         self.server_log.config(state=tk.DISABLED)
-
-                        self.client_sockets[dest].sending(data)
+                        # TODO 格式
+                        self.client_sockets[dest].send(data_encoder(data))
 
                     else:
                         self.server_log.config(state=tk.NORMAL)
@@ -234,7 +238,7 @@ class window(tk.Tk):
         self.clients.pop(addr)
 
         for name in self.client_sockets:
-            self.client_sockets[name].sending('clientlist:' + str(self.client_sockets.keys()))
+            self.client_sockets[name].send(data_encoder(('clientlist:' + str(self.client_sockets.keys())).encode()))
 
     def launch_client(self):
         self.host = self.host_entry.get()
@@ -284,11 +288,18 @@ class window(tk.Tk):
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         self.client_socket.connect((self.host, self.port))
-        self.client_socket.send('Please allow connection!%&%{0}%&%'.format(self.nick))
-        self.clients = ast.literal_eval(self.client_socket.recv(1024)[11:]) # TODO 检查【11：】的用法
+
+        hello='%&%{0}%&%Please allow connection!'.format(self.nick).encode()
+        print(hello)
+
+        self.client_socket.send(data_encoder(hello))
+        cc = self.client_socket.recv(1024)[11:]
+        print(cc)
+        print(type(cc))
+        self.clients = ast.literal_eval(self.client_socket.recv(1024)[11:])
         # TODO 改变客户端左侧边栏：无选择只展示
         self.dest = tk.StringVar()
-        self.radios = []
+        self.clientlist = []
 
         self.radio_label = ttk.Label(self.clients_frame,
                                      width=15,
@@ -307,7 +318,7 @@ class window(tk.Tk):
             r = ttk.Radiobutton(self.clients_frame, text=client, variable=self.dest, value=client)
             r.pack(anchor=tk.W)
 
-            self.radios.append(r)
+            self.clientlist.append(r)
 
         self.dest.set(self.clients[0])
 
@@ -318,7 +329,7 @@ class window(tk.Tk):
         self.clientd_thread.start()
 
     def sending(self, event):
-        # TODO 改变信息格式，配合头处理17，104，140行
+
         message = self.chat_entry.get()
         dest = self.dest.get()
         #data = '%@%{0}%@%{1}%&%{2}%&%'.format(dest, message, self.nick)
@@ -349,36 +360,36 @@ class window(tk.Tk):
         while not self.should_quit:
             try:
                 # TODO 头文件处理 配合17，104，140，254行
-                firstbyte = bytes(1)
+                firstbyte = '1'.encode()
                 senderflag = 1
                 message = ""
-                while firstbyte:
+                while firstbyte==b'1':
                     firstbyte = self.client_socket.recv(1)
                     length = self.client_socket.recv(12)
-                    data = self.client_socket.recv(length)
+                    data = self.client_socket.recv(int(length.decode()))
 
                     # TODO？？？: 这里的 if data[: 11] == 'clientlist:'：需要更改，为单选聊天对象问题
                     if data[: 11] == 'clientlist:':
                         self.clients = ast.literal_eval(data[11:])
 
-                        for r in self.radios:
+                        for r in self.clientlist:
                             r.destroy()
                         for client in self.clients:
                             r = ttk.Radiobutton(self.clients_frame, text=client, variable=self.dest, value=client)
                             r.pack(anchor=tk.W)
 
-                            self.radios.append(r)
+                            self.clientlist.append(r)
                     else:
                         # TODO 消息格式
                         if senderflag :
                             sender = get_nick(data.decode()) #已经是string格式
                             senderflag = 0
-                            if firstbyte == 0:
+                            if firstbyte == b'0':
                                 message += get_message_end(data.decode()) # 已经是string格式
                             else:
                                 message += get_message_unend(data.decode()) # 已经是string格式
                         else:
-                            if firstbyte == 0:
+                            if firstbyte == b'0':
                                 message += get_message_end(data.decode()) # 已经是string格式
                             else:
                                 message += get_message_unend(data.decode()) # 已经是string格式
