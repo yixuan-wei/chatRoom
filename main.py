@@ -13,7 +13,7 @@ import sys
 # TODO server挂掉client的处理,即connection reset by peer
 # TODO socket.connect refused的错误处理
 # TODO tk & ttk格式全错
-# TODO 客户端突然退出
+# TODO 客户端突然退出 __client pop未正常处理
 
 
 def data_encoder(data):
@@ -181,8 +181,7 @@ class window(tk.Tk):
                 self.client_sockets[nick] = client
 
                 for name in self.client_sockets:
-                    #TODO 送出去的keys()不是单纯的[]而是dict_keys()
-                    self.client_sockets[name].send(('clientlist:' + str(self.client_sockets.keys())).encode())
+                    self.client_sockets[name].send(('clientlist:' + str(list(self.client_sockets.keys()))).encode())
 
                 t = Thread(name='client {0}'.format(nick), target=self.socket_comm, args=(addr,))
 
@@ -215,7 +214,6 @@ class window(tk.Tk):
                         self.server_log.config(state=tk.NORMAL)
                         self.server_log.insert(tk.END, 'Sending msg from {0} to {1}\n'.format(nick, dest))
                         self.server_log.config(state=tk.DISABLED)
-                        # TODO 格式
                         self.client_sockets[dest].send(data_encoder(data))
 
                     else:
@@ -238,7 +236,7 @@ class window(tk.Tk):
         self.clients.pop(addr)
 
         for name in self.client_sockets:
-            self.client_sockets[name].send(data_encoder(('clientlist:' + str(self.client_sockets.keys())).encode()))
+            self.client_sockets[name].send(data_encoder(('clientlist:' + str(list(self.client_sockets.keys()))).encode()))
 
     def launch_client(self):
         self.host = self.host_entry.get()
@@ -290,16 +288,13 @@ class window(tk.Tk):
         self.client_socket.connect((self.host, self.port))
 
         hello='%&%{0}%&%Please allow connection!'.format(self.nick).encode()
-        print(hello)
 
         self.client_socket.send(data_encoder(hello))
-        cc = self.client_socket.recv(1024)[11:]
-        print(cc)
-        print(type(cc))
-        self.clients = ast.literal_eval(self.client_socket.recv(1024)[11:])
-        # TODO 改变客户端左侧边栏：无选择只展示
+
+        self.clients = ast.literal_eval((self.client_socket.recv(1024)[11:]).decode())
         self.dest = tk.StringVar()
         self.clientlist = []
+        self.clist = tk.Listbox(self.clients_frame)
 
         self.radio_label = ttk.Label(self.clients_frame,
                                      width=15,
@@ -315,10 +310,10 @@ class window(tk.Tk):
         self.__j = 1
 
         for client in self.clients:
-            r = ttk.Radiobutton(self.clients_frame, text=client, variable=self.dest, value=client)
-            r.pack(anchor=tk.W)
+            self.clist.insert(tk.END, client)
+            self.clientlist.append(client)
 
-            self.clientlist.append(r)
+        self.clist.pack(anchor=tk.W)
 
         self.dest.set(self.clients[0])
 
@@ -335,8 +330,8 @@ class window(tk.Tk):
         #data = '%@%{0}%@%{1}%&%{2}%&%'.format(dest, message, self.nick)
         data = '%@%{0}%&%{1}%$%'.format(self.nick, message)
         # TODO 将sender放在前面，这样再和整体的数据连接之后，再进行分批处理，就会只有一个sender，就不会有多个sender了
-        data = data.encode()# TODO 转成bytes之后调用编码函数
-        # TODO 在class外侧单独写一个编码函数data_encoder()，方便调用
+        data = data.encode()
+        # 在class外侧单独写一个编码函数data_encoder()，方便调用
         data = data_encoder(data)
 
         self.chat_entry.delete(0, tk.END)
@@ -359,7 +354,7 @@ class window(tk.Tk):
     def clientd(self):
         while not self.should_quit:
             try:
-                # TODO 头文件处理 配合17，104，140，254行
+
                 firstbyte = '1'.encode()
                 senderflag = 1
                 message = ""
@@ -394,7 +389,7 @@ class window(tk.Tk):
                             else:
                                 message += get_message_unend(data.decode()) # 已经是string格式
 
-                # TODO: 此时的sender和message都已经为string格式
+                # 此时的sender和message都已经为string格式
                 self.chat_text.config(state=tk.NORMAL)
                 self.chat_text.insert(tk.END, 'From {0}'.format(sender), ('tag{0}'.format(self.__i)))
                 self.chat_text.insert(tk.END, ': {0}\n'.format(message), ('tag{0}'.format(self.__j)))
@@ -425,9 +420,12 @@ class window(tk.Tk):
 
     def client_quit(self):
         self.should_quit = True
+        print('ready to shut down client')
         self.client_socket.shutdown(socket.SHUT_WR)
-
-        self.clientd_thread.join()
+        try:
+            self.clientd_thread.join()
+        except:
+            pass
         self.client_socket.close()
         self.destroy()
 
