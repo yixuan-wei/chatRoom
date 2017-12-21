@@ -6,6 +6,7 @@ import socket
 import select
 import tkinter as tk
 from tkinter import ttk
+from tkinter import scrolledtext
 import platform  # for platform.platform
 import os  # for os.system
 import ast  # For ast.literal_eval()
@@ -307,11 +308,10 @@ class window(tk.Tk):
 
         self.chat_text = tk.Text(self.chat_frame, state=tk.DISABLED)
 
-        self.chat_entry = ttk.Entry(self.entry_frame)
+        self.chat_entry = scrolledtext.ScrolledText(self.entry_frame,height=3,wrap=tk.WORD)
         self.send_button = ttk.Button(self.entry_frame, text='Send')
-        # TODO 聊天框格式设置 & 支持滚动
         self.send_button.bind('<Button-1>', self.sending)
-        self.chat_entry.bind('<Return>', self.sending)
+        self.chat_entry.bind('<Shift-Return>', self.sending)
 
         self.entry_frame.pack(side=tk.BOTTOM, fill=tk.X)
         self.frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -358,7 +358,7 @@ class window(tk.Tk):
 
     def sending(self, event):
 
-        message = self.chat_entry.get()
+        message = self.chat_entry.get(1.0,tk.END)
         # dest = self.dest.get()
         # data = '%@%{0}%@%{1}%&%{2}%&%'.format(dest, message, self.nick)
         data = '%@%{0}%&%{1}%$%'.format(self.nick, message)
@@ -367,7 +367,7 @@ class window(tk.Tk):
         # 在class外侧单独写一个编码函数data_encoder()，方便调用
         data = data_encoder(data)
 
-        self.chat_entry.delete(0, tk.END)
+        self.chat_entry.delete(1.0, tk.END)
         # Now we get the handled data, and we can send it
         self.client_socket.send(data)
 
