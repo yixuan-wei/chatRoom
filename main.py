@@ -13,6 +13,11 @@ import ast  # For ast.literal_eval()
 import sys
 
 
+# TODO 消息间上下距离减小
+# TODO 界面
+# TODO 公共与私聊
+# TODO 发送图片
+
 def data_encoder(data):
     rest = len(data)
     i = 0
@@ -56,7 +61,7 @@ def restart_window(self):
         self.frame.destroy()
     except:
         pass
-    self.text = tk.Text(self, width=28, height=2,state=tk.NORMAL)
+    self.text = tk.Text(self, width=28, height=2, state=tk.NORMAL)
     self.text.insert(1.0, 'No server on such IP address\nOr connection failed')
     self.text.config(state=tk.DISABLED)
     self.text.pack()
@@ -138,9 +143,23 @@ class window(tk.Tk):
         self.client_button.destroy()
         self.server_button.destroy()
         self.title('Chat Room Server Log')
+        # 获取本机ip
+        myname = socket.gethostname()
+        myaddr = socket.gethostbyname_ex(myname)[2]
 
-        self.host = '127.0.0.1'
-        self.port = 8088
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.settimeout(0.2)
+
+        for addr in myaddr:
+            try:
+                self.server_socket.bind((addr, 8080))
+                break
+            except:
+                continue
+        self.host, self.port = self.server_socket.getsockname()
+        if self.host=='':
+            restart_window(self)
+
         self.log_frame = ttk.Frame(self)
 
         self.log_frame.style = ttk.Style()
@@ -153,10 +172,6 @@ class window(tk.Tk):
         self.server_log.pack(expand=True, fill=tk.BOTH)
         self.server_message.pack()
         self.log_frame.pack(expand=True, fill=tk.BOTH)
-
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.settimeout(0.2)
-        self.server_socket.bind((self.host, self.port))
 
         self.client_sockets = {}  # Dictionary -> nick:socket
         self.clients = {}  # Dictionary -> address:nick_name
@@ -308,7 +323,7 @@ class window(tk.Tk):
 
         self.chat_text = tk.Text(self.chat_frame, state=tk.DISABLED)
 
-        self.chat_entry = scrolledtext.ScrolledText(self.entry_frame,height=3,wrap=tk.WORD)
+        self.chat_entry = scrolledtext.ScrolledText(self.entry_frame, height=3, wrap=tk.WORD)
         self.send_button = ttk.Button(self.entry_frame, text='Send')
         self.send_button.bind('<Button-1>', self.sending)
         self.chat_entry.bind('<Shift-Return>', self.sending)
@@ -358,31 +373,32 @@ class window(tk.Tk):
 
     def sending(self, event):
 
-        message = self.chat_entry.get(1.0,tk.END)
-        # dest = self.dest.get()
-        # data = '%@%{0}%@%{1}%&%{2}%&%'.format(dest, message, self.nick)
-        data = '%@%{0}%&%{1}%$%'.format(self.nick, message)
-        # 将sender放在前面，这样再和整体的数据连接之后，再进行分批处理，就会只有一个sender，就不会有多个sender了
-        data = data.encode()
-        # 在class外侧单独写一个编码函数data_encoder()，方便调用
-        data = data_encoder(data)
+        message = self.chat_entry.get(1.0, tk.END)
+        if message != '':
+            # dest = self.dest.get()
+            # data = '%@%{0}%@%{1}%&%{2}%&%'.format(dest, message, self.nick)
+            data = '%@%{0}%&%{1}%$%'.format(self.nick, message)
+            # 将sender放在前面，这样再和整体的数据连接之后，再进行分批处理，就会只有一个sender，就不会有多个sender了
+            data = data.encode()
+            # 在class外侧单独写一个编码函数data_encoder()，方便调用
+            data = data_encoder(data)
 
-        self.chat_entry.delete(1.0, tk.END)
-        # Now we get the handled data, and we can send it
-        self.client_socket.send(data)
+            self.chat_entry.delete(1.0, tk.END)
+            # Now we get the handled data, and we can send it
+            self.client_socket.send(data)
 
-        self.chat_text.config(state=tk.NORMAL)
-        self.chat_text.insert(tk.END, '{0}'.format(self.nick), ('tag{0}'.format(self.__i)))
-        self.chat_text.insert(tk.END, ': {0}\n'.format(message), ('tag{0}'.format(self.__j)))
-        self.chat_text.tag_config('tag{0}'.format(self.__i), justify=tk.RIGHT, foreground=color[color_hash('self')],
-                                  font='Times 14 bold', underline=True)
-        self.chat_text.tag_config('tag{0}'.format(self.__j), justify=tk.RIGHT, foreground='black')
-        self.chat_text.config(state=tk.DISABLED)
+            self.chat_text.config(state=tk.NORMAL)
+            self.chat_text.insert(tk.END, '{0}'.format(self.nick), ('tag{0}'.format(self.__i)))
+            self.chat_text.insert(tk.END, ': {0}\n'.format(message), ('tag{0}'.format(self.__j)))
+            self.chat_text.tag_config('tag{0}'.format(self.__i), justify=tk.RIGHT, foreground=color[color_hash('self')],
+                                      font='Times 14 bold', underline=True)
+            self.chat_text.tag_config('tag{0}'.format(self.__j), justify=tk.RIGHT, foreground='black')
+            self.chat_text.config(state=tk.DISABLED)
 
-        self.__i = self.__i + 2
-        self.__j = self.__j + 2
+            self.__i = self.__i + 2
+            self.__j = self.__j + 2
 
-        self.chat_text.see(tk.END)
+            self.chat_text.see(tk.END)
 
     def clientd(self):
         while not self.should_quit:
@@ -394,7 +410,7 @@ class window(tk.Tk):
                     firstbyte = self.client_socket.recv(1)
                     if firstbyte == b'':
                         break
-                    if firstbyte==b'2':
+                    if firstbyte == b'2':
                         print('server closed')
                         restart_window(self)
                         break
@@ -405,10 +421,10 @@ class window(tk.Tk):
 
                         self.clients = ast.literal_eval((data[11:]).decode())
 
-                        self.clientlist=[]
-                        self.clist.delete(0,tk.END)
+                        self.clientlist = []
+                        self.clist.delete(0, tk.END)
                         for client in self.clients:
-                            self.clist.insert(tk.END,client)
+                            self.clist.insert(tk.END, client)
                             self.clientlist.append(client)
                         self.clist.pack(anchor=tk.W)
                     else:
@@ -445,14 +461,14 @@ class window(tk.Tk):
     def server_quit(self):
         self.should_quit = True
         for nick in self.client_sockets:
-            print('ready to close socket',nick)
+            print('ready to close socket', nick)
             self.client_sockets[nick].send(b'2')
             self.client_sockets[nick].shutdown(socket.SHUT_WR)
             self.client_sockets[nick].close()
         self.server_socket.close()
 
         for t in self.client_comm_threads:
-            print('ready to close',t)
+            print('ready to close', t)
             t.join(1)
         self.serverd_thread.join(1)
 
