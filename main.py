@@ -1,4 +1,5 @@
-#coding:utf-8
+# coding:utf-8
+# need manually update tkinter for chinese usage in mac OS
 
 from threading import Thread
 import socket
@@ -7,13 +8,8 @@ import tkinter as tk
 from tkinter import ttk
 import platform  # for platform.platform
 import os  # for os.system
-import ast  #For ast.literal_eval()
+import ast  # For ast.literal_eval()
 import sys
-
-# TODO server挂掉client的处理,即connection reset by peer
-# TODO socket.connect refused的错误处理
-# TODO tk & ttk格式全错
-# TODO 客户端突然退出 __client pop未正常处理
 
 
 def data_encoder(data):
@@ -22,8 +18,8 @@ def data_encoder(data):
     res = b''
     while True:
 
-        if rest>4096:
-            res += '1'.encode() +'4096'.encode() + data[i:i+4096]
+        if rest > 4096:
+            res += '1'.encode() + '4096'.encode() + data[i:i + 4096]
             i += 4096
             rest -= 4096
         else:
@@ -32,19 +28,45 @@ def data_encoder(data):
             break
     return res
 
+
 def get_nick(msg):
     msg = msg[3:]
     return msg[: msg.find('%&%')]
 
 
-def get_dest(msg):
-    msg = msg[3:]
-    return msg[: msg.find('%@%')]
+# def get_dest(msg):
+#    msg = msg[3:]
+#    return msg[: msg.find('%@%')]
+
+def restart_window(self):
+    try:
+        self.re_client.destroy()
+    except:
+        pass
+    try:
+        self.chat_frame.destroy()
+        self.entry_frame.destroy()
+        self.clients_frame.destroy()
+        self.chat_entry.destroy()
+        self.chat_text.destroy()
+        self.send_button.destroy()
+        self.clist.destroy()
+        self.radio_label.destroy()
+        self.frame.destroy()
+    except:
+        pass
+    self.text = tk.Text(self, width=28, height=2,state=tk.NORMAL)
+    self.text.insert(1.0, 'No server on such IP address\nOr connection failed')
+    self.text.config(state=tk.DISABLED)
+    self.text.pack()
+
+    window.launch()
 
 
 def get_message_end(msg):
-    msg = msg[3: -3]
+    msg = msg[3: -2]
     return msg[msg.find('%&%') + 3: msg.rfind('%$%')]
+
 
 def get_message_unend(msg):
     msg = msg[3:]
@@ -52,6 +74,7 @@ def get_message_unend(msg):
 
 
 color = ['red', 'blue', 'green', 'pink', 'yellow', 'grey', 'magenta', 'orange', 'purple', 'violet', 'indigo']
+
 
 def color_hash(str):
     result = 0
@@ -62,6 +85,7 @@ def color_hash(str):
         a = b
 
     return result % 10
+
 
 class window(tk.Tk):
 
@@ -93,7 +117,7 @@ class window(tk.Tk):
         self.client_button.destroy()
         self.server_button.destroy()
 
-        self.host_entry_label = ttk.Label(self.frame, text='Server Host Name/IP Address', anchor=tk.W,justify=tk.LEFT)
+        self.host_entry_label = ttk.Label(self.frame, text='Server Host Name/IP Address', anchor=tk.W, justify=tk.LEFT)
         self.host_entry = ttk.Entry(self.frame)
 
         self.nick_entry_label = ttk.Label(self.frame, text='Nick Name', anchor=tk.W, justify=tk.LEFT)
@@ -155,36 +179,40 @@ class window(tk.Tk):
                 firstbyte = '1'.encode()
                 senderflag = 1
                 message = ""
-                while firstbyte==b'1':
+                while firstbyte == b'1':
                     firstbyte = client.recv(1)
+                    if firstbyte == b'':
+                        print('nothing received from client in the first time')
+                        break
                     length = client.recv(12)
                     data = client.recv(int(length.decode()))
 
-                    if senderflag :
-                        nick = get_nick(data.decode()) #已经是string格式
+                    if senderflag:
+                        nick = get_nick(data.decode())  # 已经是string格式
                         senderflag = 0
                         if firstbyte == b'0':
-                            message += get_message_end(data.decode()) # 已经是string格式
+                            message += get_message_end(data.decode())  # 已经是string格式
                         else:
-                            message += get_message_unend(data.decode()) # 已经是string格式
+                            message += get_message_unend(data.decode())  # 已经是string格式
                     else:
                         if firstbyte == b'0':
-                            message += get_message_end(data.decode()) # 已经是string格式
+                            message += get_message_end(data.decode())  # 已经是string格式
                         else:
-                            message += get_message_unend(data.decode()) # 已经是string格式
+                            message += get_message_unend(data.decode())  # 已经是string格式
 
                 self.server_log.config(state=tk.NORMAL)
-                self.server_log.insert(tk.INSERT, 'Nick {0} connected from {1}\n'.format(nick, addr))
+                self.server_log.insert(tk.END, 'Nick {0} connected from {1}\n'.format(nick, addr))
                 self.server_log.config(state=tk.DISABLED)
 
                 self.clients[addr] = nick
                 self.client_sockets[nick] = client
 
                 for name in self.client_sockets:
-                    self.client_sockets[name].send(('clientlist:' + str(list(self.client_sockets.keys()))).encode())
+                    self.client_sockets[name].send(data_encoder(
+                        ('clientlist:' + str(list(self.client_sockets.keys()))).encode()))
 
                 t = Thread(name='client {0}'.format(nick), target=self.socket_comm, args=(addr,))
-
+                self.client_comm_threads.append(t)
                 t.start()
 
             except socket.timeout:
@@ -198,28 +226,30 @@ class window(tk.Tk):
         while not self.should_quit:
             r, _, _ = select.select([csocket], [], [])
             if r:
-
                 firstbyte = '1'.encode()
-
-                data=b''
+                data = b''
                 while firstbyte == b'1':
                     firstbyte = csocket.recv(1)
+                    if firstbyte == b'':
+                        break
                     length = csocket.recv(12)
                     data += csocket.recv(int(length.decode()))
 
                 if len(data):
-                    # TODO 修改成聊天室模式，配合17，104，254行
-                    dest = get_dest(data)
-                    if self.client_sockets.__contains__(dest):
-                        self.server_log.config(state=tk.NORMAL)
-                        self.server_log.insert(tk.END, 'Sending msg from {0} to {1}\n'.format(nick, dest))
-                        self.server_log.config(state=tk.DISABLED)
-                        self.client_sockets[dest].send(data_encoder(data))
 
-                    else:
-                        self.server_log.config(state=tk.NORMAL)
-                        self.server_log.insert(tk.END, 'Invalid destination nick {0}\n'.format(dest))
-                        self.server_log.config(state=tk.DISABLED)
+                    # dest = get_dest(data)
+                    # if self.client_sockets.__contains__(dest):
+                    self.server_log.config(state=tk.NORMAL)
+                    self.server_log.insert(tk.END, 'Sending msg from {0} \n'.format(nick))
+                    self.server_log.config(state=tk.DISABLED)
+                    for name in self.client_sockets:
+                        if name != nick:
+                            self.client_sockets[name].send(data_encoder(data))
+
+                    # else:
+                    #    self.server_log.config(state=tk.NORMAL)
+                    #    self.server_log.insert(tk.END, 'Invalid destination nick {0}\n'.format(dest))
+                    #    self.server_log.config(state=tk.DISABLED)
 
                 else:
                     break
@@ -236,7 +266,8 @@ class window(tk.Tk):
         self.clients.pop(addr)
 
         for name in self.client_sockets:
-            self.client_sockets[name].send(data_encoder(('clientlist:' + str(list(self.client_sockets.keys()))).encode()))
+            self.client_sockets[name].send(
+                data_encoder(('clientlist:' + str(list(self.client_sockets.keys()))).encode()))
 
     def launch_client(self):
         self.host = self.host_entry.get()
@@ -250,8 +281,15 @@ class window(tk.Tk):
         self.launch_button.destroy()
         self.frame.pack_forget()
 
+        try:
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.connect((self.host, self.port))
+        except:
+            self.title('WARNING!')
+            self.re_client = tk.Button(self, text='RETRY')
+            self.re_client.bind('<Button-1>', restart_window(self))
+            self.re_client.pack()
         self.title('Chat Room Client: {0}'.format(self.nick))
-
         self.should_quit = False
 
         self.protocol('WM_DELETE_WINDOW', self.client_quit)
@@ -283,15 +321,11 @@ class window(tk.Tk):
         self.chat_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.send_button.pack(side=tk.RIGHT)
 
-        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        self.client_socket.connect((self.host, self.port))
-
-        hello='%&%{0}%&%Please allow connection!'.format(self.nick).encode()
+        hello = '%&%{0}%&%Please allow connection!'.format(self.nick).encode()
 
         self.client_socket.send(data_encoder(hello))
 
-        self.clients = ast.literal_eval((self.client_socket.recv(1024)[11:]).decode())
+        self.clients = ast.literal_eval((self.client_socket.recv(1024)[24:]).decode())
         self.dest = tk.StringVar()
         self.clientlist = []
         self.clist = tk.Listbox(self.clients_frame)
@@ -320,28 +354,27 @@ class window(tk.Tk):
         self.chat_entry.focus_set()
 
         self.clientd_thread = Thread(name='clientd', target=self.clientd)
-
         self.clientd_thread.start()
 
     def sending(self, event):
 
         message = self.chat_entry.get()
-        dest = self.dest.get()
-        #data = '%@%{0}%@%{1}%&%{2}%&%'.format(dest, message, self.nick)
+        # dest = self.dest.get()
+        # data = '%@%{0}%@%{1}%&%{2}%&%'.format(dest, message, self.nick)
         data = '%@%{0}%&%{1}%$%'.format(self.nick, message)
-        # TODO 将sender放在前面，这样再和整体的数据连接之后，再进行分批处理，就会只有一个sender，就不会有多个sender了
+        # 将sender放在前面，这样再和整体的数据连接之后，再进行分批处理，就会只有一个sender，就不会有多个sender了
         data = data.encode()
         # 在class外侧单独写一个编码函数data_encoder()，方便调用
         data = data_encoder(data)
 
         self.chat_entry.delete(0, tk.END)
-        # TODO ：Now we get the handled data, and we can send it
+        # Now we get the handled data, and we can send it
         self.client_socket.send(data)
 
         self.chat_text.config(state=tk.NORMAL)
-        self.chat_text.insert(tk.END, 'To {0}'.format(dest, message), ('tag{0}'.format(self.__i)))
+        self.chat_text.insert(tk.END, '{0}'.format(self.nick), ('tag{0}'.format(self.__i)))
         self.chat_text.insert(tk.END, ': {0}\n'.format(message), ('tag{0}'.format(self.__j)))
-        self.chat_text.tag_config('tag{0}'.format(self.__i), justify=tk.RIGHT, foreground=color[color_hash(dest)],
+        self.chat_text.tag_config('tag{0}'.format(self.__i), justify=tk.RIGHT, foreground=color[color_hash('self')],
                                   font='Times 14 bold', underline=True)
         self.chat_text.tag_config('tag{0}'.format(self.__j), justify=tk.RIGHT, foreground='black')
         self.chat_text.config(state=tk.DISABLED)
@@ -354,44 +387,47 @@ class window(tk.Tk):
     def clientd(self):
         while not self.should_quit:
             try:
-
                 firstbyte = '1'.encode()
                 senderflag = 1
                 message = ""
-                while firstbyte==b'1':
+                while firstbyte == '1'.encode():
                     firstbyte = self.client_socket.recv(1)
+                    if firstbyte == b'':
+                        break
+                    if firstbyte==b'2':
+                        print('server closed')
+                        restart_window(self)
+                        break
                     length = self.client_socket.recv(12)
                     data = self.client_socket.recv(int(length.decode()))
 
-                    # TODO？？？: 这里的 if data[: 11] == 'clientlist:'：需要更改，为单选聊天对象问题
-                    if data[: 11] == 'clientlist:':
-                        self.clients = ast.literal_eval(data[11:])
+                    if data[: 11] == 'clientlist:'.encode():
 
-                        for r in self.clientlist:
-                            r.destroy()
+                        self.clients = ast.literal_eval((data[11:]).decode())
+
+                        self.clientlist=[]
+                        self.clist.delete(0,tk.END)
                         for client in self.clients:
-                            r = ttk.Radiobutton(self.clients_frame, text=client, variable=self.dest, value=client)
-                            r.pack(anchor=tk.W)
-
-                            self.clientlist.append(r)
+                            self.clist.insert(tk.END,client)
+                            self.clientlist.append(client)
+                        self.clist.pack(anchor=tk.W)
                     else:
-                        # TODO 消息格式
-                        if senderflag :
-                            sender = get_nick(data.decode()) #已经是string格式
+                        if senderflag:
+                            sender = get_nick(data.decode())  # 已经是string格式
                             senderflag = 0
                             if firstbyte == b'0':
-                                message += get_message_end(data.decode()) # 已经是string格式
+                                message += get_message_end(data.decode())  # 已经是string格式
                             else:
-                                message += get_message_unend(data.decode()) # 已经是string格式
+                                message += get_message_unend(data.decode())  # 已经是string格式
                         else:
                             if firstbyte == b'0':
-                                message += get_message_end(data.decode()) # 已经是string格式
+                                message += get_message_end(data.decode())  # 已经是string格式
                             else:
-                                message += get_message_unend(data.decode()) # 已经是string格式
+                                message += get_message_unend(data.decode())  # 已经是string格式
 
                 # 此时的sender和message都已经为string格式
                 self.chat_text.config(state=tk.NORMAL)
-                self.chat_text.insert(tk.END, 'From {0}'.format(sender), ('tag{0}'.format(self.__i)))
+                self.chat_text.insert(tk.END, '{0}'.format(sender), ('tag{0}'.format(self.__i)))
                 self.chat_text.insert(tk.END, ': {0}\n'.format(message), ('tag{0}'.format(self.__j)))
                 self.chat_text.tag_config('tag{0}'.format(self.__i), justify=tk.LEFT,
                                           foreground=color[color_hash(sender)], font='Times 14 bold',
@@ -408,27 +444,30 @@ class window(tk.Tk):
 
     def server_quit(self):
         self.should_quit = True
-
-        for t in self.client_comm_threads:
-            t.join()
-        self.serverd_thread.join()
-
         for nick in self.client_sockets:
+            print('ready to close socket',nick)
+            self.client_sockets[nick].send(b'2')
+            self.client_sockets[nick].shutdown(socket.SHUT_WR)
             self.client_sockets[nick].close()
         self.server_socket.close()
+
+        for t in self.client_comm_threads:
+            print('ready to close',t)
+            t.join(1)
+        self.serverd_thread.join(1)
+
         self.destroy()
 
     def client_quit(self):
         self.should_quit = True
-        print('ready to shut down client')
         self.client_socket.shutdown(socket.SHUT_WR)
-        try:
-            self.clientd_thread.join()
-        except:
-            pass
         self.client_socket.close()
-        self.destroy()
+        self.clientd_thread.join(1)
 
-if __name__=='__main__':
+        self.destroy()
+        sys.exit()
+
+
+if __name__ == '__main__':
     window = window()
     window.launch()
