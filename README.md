@@ -1,7 +1,7 @@
 # chatRoom
 based on python socket ----for experiment of Computer Network 2017
 
-created by: yixuan-wei & weiyue0703
+created by: yixuan-wei & weiyue0307
 
 * for mac, tkinter needs manual updates:
 http://www.activestate.com/activetcl/downloads
