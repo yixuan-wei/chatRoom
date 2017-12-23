@@ -11,11 +11,9 @@ import platform  # for platform.platform
 import os  # for os.system
 import ast  # For ast.literal_eval()
 import sys
+import re
 
 
-# TODO 消息间上下距离减小 ???
-# TODO 界面
-# TODO 公共与私聊
 # TODO 发送图片
 # TODO 用户名'clientlist:'的解决
 
@@ -44,28 +42,37 @@ def get_dest(msg):
     return msg[: msg.find('%@%')]
 
 
-def restart_window(self):
-    try:
-        self.re_client.destroy()
-    except:
+def restart_window(self,case):
+    if case==0:
         pass
-    try:
+    elif case==1:
+        self.host_entry_label.destroy()
+        self.host_entry.destroy()
+        self.nick_entry_label.destroy()
+        self.nick_entry.destroy()
+        self.launch_button.destroy()
+    elif case==2:
         self.chat_frame.destroy()
         self.entry_frame.destroy()
         self.clients_frame.destroy()
         self.chat_entry.destroy()
         self.chat_text.destroy()
         self.send_button.destroy()
-        # self.clist.destroy()
+
         self.group_chat.destroy()
         for r in self.clientlist:
             r.destroy()
         self.radio_label.destroy()
-        self.frame.destroy()
-    except:
-        pass
+    elif case==-1:
+        self.server_button.destroy()
+        self.client_button.destroy()
+    self.frame.destroy()
+
     self.text = tk.Text(self, width=28, height=2, state=tk.NORMAL)
-    self.text.insert(1.0, 'No server on such IP address\nOr connection failed')
+    if case<0:
+        self.text.insert(1.0, 'Already started a server\non this IP address')
+    else:
+        self.text.insert(1.0, 'No server on such IP address\nOr connection failed')
     self.text.config(state=tk.DISABLED)
     self.text.pack()
 
@@ -78,7 +85,6 @@ def rename(self):
     self.nick_entry_label.destroy()
     self.nick_entry.destroy()
     self.launch_button.destroy()
-    self.frame.pack_forget()
 
     self.text1 = tk.Text(self, width=28, height=1, state=tk.NORMAL)
     self.text1.insert(1.0, 'repeated nick name!')
@@ -89,13 +95,10 @@ def rename(self):
 
 
 def get_message_end(msg):
-    msg = msg[3: -2]
-    return msg[msg.find('%&%') + 3: msg.rfind('%$%')]
-
-
-def get_message_unend(msg):
-    msg = msg[3:]
-    return msg[msg.find('%&%') + 3:]
+    end = msg.rfind('%$%')
+    if end == -1:
+        return msg[msg.find('%&%') + 3:]
+    return msg[msg.find('%&%') + 3: end]
 
 
 color = ['red', 'blue', 'green', 'pink', 'yellow', 'grey', 'magenta', 'orange', 'purple', 'violet', 'indigo']
@@ -171,24 +174,29 @@ class window(tk.Tk):
             self.text.destroy()
         except:
             pass
-        self.title('Chat Room Server Log')
         # 获取本机ip
         myname = socket.gethostname()
         myaddr = socket.gethostbyname_ex(myname)[2]
 
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.settimeout(0.2)
+        self.host=''
+        self.port=8088
 
         for addr in myaddr:
             try:
-                self.server_socket.bind((addr, 8088))
+                self.server_socket.bind((addr, self.port))
                 break
             except:
                 continue
         self.host, self.port = self.server_socket.getsockname()
+        print(self.host,self.port)
         if self.host == '':
-            restart_window(self)
+            restart_window(self,0)
+        elif self.host=='0.0.0.0':
+            restart_window(self,-1)
 
+        self.title('Chat Room Server Log')
         self.log_frame = ttk.Frame(self)
 
         self.log_frame.style = ttk.Style()
@@ -233,7 +241,7 @@ class window(tk.Tk):
                     nick = get_nick(data.decode())  # 已经是string格式
 
                 if not self.client_sockets.__contains__(nick):
-                    client.send(data_encoder('ACCEPT'.encode()))  #TODO 没发出去？
+                    client.send(data_encoder('ACCEPT'.encode()))
                     self.server_log.config(state=tk.NORMAL)
                     self.server_log.insert(tk.END, 'Nick {0} connected from {1}\n'.format(nick, addr))
                     self.server_log.config(state=tk.DISABLED)
@@ -275,7 +283,7 @@ class window(tk.Tk):
                 if len(data):
 
                     dest = get_dest(data.decode())
-                    if dest==nick:  # TODO 不给自己发
+                    if dest == nick:
                         continue
 
                     self.server_log.config(state=tk.NORMAL)
@@ -321,12 +329,10 @@ class window(tk.Tk):
 
         try:
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.settimeout(1.0)
             self.client_socket.connect((self.host, self.port))
         except:
-            self.title('WARNING!')
-            self.re_client = tk.Button(self, text='RETRY')
-            self.re_client.bind('<Button-1>', restart_window(self))
-            self.re_client.pack()
+            restart_window(self,1)
 
         try:
             self.text1.destroy()
@@ -336,7 +342,6 @@ class window(tk.Tk):
         hello = '%@%{0}%&%Please allow connection!'.format(self.nick).encode()
         self.client_socket.send(data_encoder(hello))
         reaction = self.client_socket.recv(1024)[13:]
-        print(reaction)
 
         if reaction.decode() == 'ACCEPT':
             self.host_entry_label.destroy()
@@ -378,17 +383,15 @@ class window(tk.Tk):
             self.send_button.pack(side=tk.RIGHT)
 
             self.clients = ast.literal_eval((self.client_socket.recv(1024)[24:]).decode())
-            print(self.clients)
             self.dest = tk.StringVar()
             self.clientlist = []
-            # self.clist = tk.Listbox(self.clients_frame,font=('Arial',15))
 
             self.radio_label = ttk.Label(self.clients_frame,
                                          width=15,
                                          wraplength=125,
                                          anchor=tk.W,
                                          justify=tk.LEFT,
-                                         text='connected clients:')
+                                         text='\nconnected clients:\n', font=('Arial', 18))
 
             self.radio_label.pack()
             self.chat_text.pack(fill=tk.BOTH, expand=True)
@@ -396,16 +399,13 @@ class window(tk.Tk):
             self.__i = 0
             self.__j = 1
 
-            self.group_chat = ttk.Radiobutton(self.clients_frame, text='Group Chat', variable=self.dest, value='Group Chat%%')
+            self.group_chat = ttk.Radiobutton(self.clients_frame, text='Group Chat', variable=self.dest,
+                                              value='Group Chat%%')
             self.group_chat.pack(anchor=tk.W)
             for client in self.clients:
-                print('first send clientlist')
-                # self.clist.insert(tk.END, client)
                 r = ttk.Radiobutton(self.clients_frame, text=client, variable=self.dest, value=client)
                 r.pack(anchor=tk.W)
                 self.clientlist.append(r)
-
-            # self.clist.pack(anchor=tk.W)
 
             self.dest.set(self.clients[0])
 
@@ -420,7 +420,7 @@ class window(tk.Tk):
     def sending(self, event):
 
         message = self.chat_entry.get(1.0, tk.END)
-        if message != '':
+        if not re.match(r'^[\s]*$', message):
             dest = self.dest.get()
             data = '{0}%@%{1}%&%{2}%$%'.format(dest, self.nick, message)
             # 将sender放在前面，这样再和整体的数据连接之后，再进行分批处理，就会只有一个sender，就不会有多个sender了
@@ -453,13 +453,14 @@ class window(tk.Tk):
                 firstbyte = '1'.encode()
                 senderflag = 1
                 message = ""
+                receiver = ''
                 while firstbyte == '1'.encode():
                     firstbyte = self.client_socket.recv(1)
                     if firstbyte == b'':
                         break
                     if firstbyte == b'2':
                         print('server closed')
-                        restart_window(self)
+                        restart_window(self,2)
                         break
                     length = self.client_socket.recv(12)
                     data = self.client_socket.recv(int(length.decode()))
@@ -470,41 +471,38 @@ class window(tk.Tk):
 
                         for r in self.clientlist:
                             r.destroy()
-                        # self.clist.delete(0, tk.END)
+
                         for client in self.clients:
                             r = ttk.Radiobutton(self.clients_frame, text=client, variable=self.dest, value=client)
                             r.pack(anchor=tk.W)
-                            # self.clist.insert(tk.END, client)
+
                             self.clientlist.append(r)
-                        # self.clist.pack(anchor=tk.W)
-                    else:
+
+                    elif len(data):
                         if senderflag:
                             sender = get_nick(data.decode())  # 已经是string格式
+                            receiver = get_dest(data.decode())
                             senderflag = 0
-                            if firstbyte == b'0':
-                                message += get_message_end(data.decode())  # 已经是string格式
-                            else:
-                                message += get_message_unend(data.decode())  # 已经是string格式
-                        else:
-                            if firstbyte == b'0':
-                                message += get_message_end(data.decode())  # 已经是string格式
-                            else:
-                                message += get_message_unend(data.decode())  # 已经是string格式
+                        message += get_message_end(data.decode())  # 已经是string格式
 
                 # 此时的sender和message都已经为string格式
-                self.chat_text.config(state=tk.NORMAL)
-                self.chat_text.insert(tk.END, '{0}'.format(sender), ('tag{0}'.format(self.__i)))
-                self.chat_text.insert(tk.END, ': {0}\n'.format(message), ('tag{0}'.format(self.__j)))
-                self.chat_text.tag_config('tag{0}'.format(self.__i), justify=tk.LEFT,
-                                          foreground=color[color_hash(sender)], font='Times 14 bold',
-                                          underline=True)
-                self.chat_text.tag_config('tag{0}'.format(self.__j), justify=tk.LEFT, foreground='black')
-                self.chat_text.config(state=tk.DISABLED)
+                if message != "":
+                    self.chat_text.config(state=tk.NORMAL)
+                    if receiver == 'Group Chat%%':
+                        self.chat_text.insert(tk.END, '{0} TO ALL'.format(sender), ('tag{0}'.format(self.__i)))
+                    else:
+                        self.chat_text.insert(tk.END, '{0} TO YOU'.format(sender), ('tag{0}'.format(self.__i)))
+                    self.chat_text.insert(tk.END, ': {0}\n'.format(message), ('tag{0}'.format(self.__j)))
+                    self.chat_text.tag_config('tag{0}'.format(self.__i), justify=tk.LEFT,
+                                              foreground=color[color_hash(sender)], font='Times 14 bold',
+                                              underline=True)
+                    self.chat_text.tag_config('tag{0}'.format(self.__j), justify=tk.LEFT, foreground='black')
+                    self.chat_text.config(state=tk.DISABLED)
 
-                self.__i = self.__i + 2
-                self.__j = self.__j + 2
+                    self.__i = self.__i + 2
+                    self.__j = self.__j + 2
 
-                self.chat_text.see(tk.END)
+                    self.chat_text.see(tk.END)
             except:
                 continue
 
