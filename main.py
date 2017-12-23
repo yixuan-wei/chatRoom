@@ -15,7 +15,6 @@ import re
 
 
 # TODO 发送图片
-# TODO 用户名'clientlist:'的解决
 
 def data_encoder(data):
     rest = len(data)
@@ -87,7 +86,7 @@ def rename(self):
     self.launch_button.destroy()
 
     self.text1 = tk.Text(self, width=28, height=1, state=tk.NORMAL)
-    self.text1.insert(1.0, 'repeated nick name!')
+    self.text1.insert(1.0, 'invalid nick name!')
     self.text1.config(state=tk.DISABLED)
     self.text1.pack()
 
@@ -240,7 +239,7 @@ class window(tk.Tk):
 
                     nick = get_nick(data.decode())  # 已经是string格式
 
-                if not self.client_sockets.__contains__(nick):
+                if not (self.client_sockets.__contains__(nick) or nick=='clientlist:'):
                     client.send(data_encoder('ACCEPT'.encode()))
                     self.server_log.config(state=tk.NORMAL)
                     self.server_log.insert(tk.END, 'Nick {0} connected from {1}\n'.format(nick, addr))
