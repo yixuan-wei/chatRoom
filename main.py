@@ -10,7 +10,6 @@ from tkinter import scrolledtext
 import platform  # for platform.platform
 import os  # for os.system
 import ast  # For ast.literal_eval()
-import sys
 import re
 
 
@@ -528,7 +527,6 @@ class window(tk.Tk):
         self.clientd_thread.join(1)
 
         self.destroy()
-        sys.exit()
 
 
 if __name__ == '__main__':
