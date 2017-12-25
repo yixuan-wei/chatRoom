@@ -21,10 +21,10 @@ length of info: bit 1-12
 
 		info length in bytes
 
-info: bit 13-5004(max): 
+info: bit 13-4108(max): 
 
-		--first one: %@%{senderName}%&%{message}%$%; 
-		--the following: message
+		--first one: destination%@%{senderName}%&%{message}; 
+		--the following: {message}%$%
 
 TRUE SORCE CODE:
 main.py 
