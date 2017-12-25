@@ -42,7 +42,8 @@ def get_dest(msg):
 
 def restart_window(self,case):
     if case==0:
-        pass
+        self.server_button.destroy()
+        self.client_button.destroy()
     elif case==1:
         self.host_entry_label.destroy()
         self.host_entry.destroy()
@@ -73,8 +74,8 @@ def restart_window(self,case):
         self.text.insert(1.0, 'No server on such IP address\nOr connection failed')
     self.text.config(state=tk.DISABLED)
     self.text.pack()
-
-    window.launch()
+    if case<2:
+        window.launch()
 
 
 def rename(self):
@@ -233,12 +234,14 @@ class window(tk.Tk):
                     if firstbyte == b'':
                         print('nothing received from client in the first time')
                         break
+
                     length = client.recv(12)
                     data = client.recv(int(length.decode()))
 
                     nick = get_nick(data.decode())  # 已经是string格式
 
-                if not (self.client_sockets.__contains__(nick) or nick=='clientlist:'):
+                if not (self.client_sockets.__contains__(nick) or
+                            nick=='clientlist:' or nick=='Group Chat'):
                     client.send(data_encoder('ACCEPT'.encode()))
                     self.server_log.config(state=tk.NORMAL)
                     self.server_log.insert(tk.END, 'Nick {0} connected from {1}\n'.format(nick, addr))
@@ -251,12 +254,14 @@ class window(tk.Tk):
                         self.client_sockets[name].send(data_encoder(
                             ('clientlist:' + str(list(self.client_sockets.keys()))).encode()))
 
-                    t = Thread(name='client {0}'.format(nick), target=self.socket_comm, args=(addr,))
-                    self.client_comm_threads.append(t)
-                    t.start()
+                    self.socket_comm_t = Thread(name='client {0}'.format(nick), target=self.socket_comm, args=(addr,))
+                    self.client_comm_threads.append(self.socket_comm_t)
+                    self.socket_comm_t.start()
 
                 else:
                     client.send(data_encoder('RENAME'.encode()))
+                    client.shutdown(socket.SHUT_WR)
+                    client.close()
 
             except socket.timeout:
                 continue
@@ -413,6 +418,8 @@ class window(tk.Tk):
             self.clientd_thread.start()
 
         else:
+            self.client_socket.shutdown(socket.SHUT_WR)
+            self.client_socket.close()
             rename(self)
 
     def sending(self, event):
@@ -458,6 +465,8 @@ class window(tk.Tk):
                         break
                     if firstbyte == b'2':
                         print('server closed')
+                        self.client_socket.shutdown(socket.SHUT_WR)
+                        self.client_socket.close()
                         restart_window(self,2)
                         break
                     length = self.client_socket.recv(12)
@@ -522,8 +531,11 @@ class window(tk.Tk):
 
     def client_quit(self):
         self.should_quit = True
-        self.client_socket.shutdown(socket.SHUT_WR)
-        self.client_socket.close()
+        try:
+            self.client_socket.shutdown(socket.SHUT_WR)
+            self.client_socket.close()
+        except:
+            pass
         self.clientd_thread.join(1)
 
         self.destroy()
