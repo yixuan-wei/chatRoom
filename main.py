@@ -13,7 +13,7 @@ import ast  # For ast.literal_eval()
 import re
 
 
-# TODO 发送图片
+# TODO send image
 
 def data_encoder(data):
     rest = len(data)
@@ -173,7 +173,7 @@ class window(tk.Tk):
             self.text.destroy()
         except:
             pass
-        # 获取本机ip
+        # obtain IP address of local device
         myname = socket.gethostname()
         myaddr = socket.gethostbyname_ex(myname)[2]
 
@@ -238,7 +238,7 @@ class window(tk.Tk):
                     length = client.recv(12)
                     data = client.recv(int(length.decode()))
 
-                    nick = get_nick(data.decode())  # 已经是string格式
+                    nick = get_nick(data.decode())  # already string format
 
                 if not (self.client_sockets.__contains__(nick) or
                             nick=='clientlist:' or nick=='Group Chat'):
@@ -428,9 +428,9 @@ class window(tk.Tk):
         if not re.match(r'^[\s]*$', message):
             dest = self.dest.get()
             data = '{0}%@%{1}%&%{2}%$%'.format(dest, self.nick, message)
-            # 将sender放在前面，这样再和整体的数据连接之后，再进行分批处理，就会只有一个sender，就不会有多个sender了
+            # put sender in the front, so that when processing batches of data only exists one sender
             data = data.encode()
-            # 在class外侧单独写一个编码函数data_encoder()，方便调用
+            # data_encoder() put ouside of class for applying convinience
             data = data_encoder(data)
 
             self.chat_entry.delete(1.0, tk.END)
@@ -487,12 +487,12 @@ class window(tk.Tk):
 
                     elif len(data):
                         if senderflag:
-                            sender = get_nick(data.decode())  # 已经是string格式
+                            sender = get_nick(data.decode())  # already string format
                             receiver = get_dest(data.decode())
                             senderflag = 0
-                        message += get_message_end(data.decode())  # 已经是string格式
+                        message += get_message_end(data.decode())  # already string format
 
-                # 此时的sender和message都已经为string格式
+                # sender and message are already string format now
                 if message != "":
                     self.chat_text.config(state=tk.NORMAL)
                     if receiver == 'Group Chat%%':
