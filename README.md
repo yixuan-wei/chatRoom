@@ -1,7 +1,8 @@
 # chatRoom
 based on python socket ----for experiment of Computer Network 2017<br>
-created by: yixuan-wei & weiyue0307
-**requirements**: Python3, tkinter, PyQt5
+created by: yixuan-wei & weiyue0307<br>
+**requirements**: Python3, tkinter, PyQt5<br>
+**GitHub**: https://github.com/yixuan-wei/chatRoom
 
 > for mac, tkinter needs manual updates:
 http://www.activestate.com/activetcl/downloads <br>
@@ -26,7 +27,7 @@ info: bit 13-4108(max):
 		--first one: destination%@%{senderName}%&%{message}; 
 		--the following: {message}%$%
 
-TRUE SOURCE CODE:
+**TRUE SOURCE CODE**:
 main.py 
 
 Run:
