@@ -1,11 +1,11 @@
 # chatRoom
-based on python socket ----for experiment of Computer Network 2017
-
+based on python socket ----for experiment of Computer Network 2017<br>
 created by: yixuan-wei & weiyue0307
+**requirements**: Python3, tkinter, PyQt5
 
-* for mac, tkinter needs manual updates:
-http://www.activestate.com/activetcl/downloads
-version:8.5.18.0
+> for mac, tkinter needs manual updates:
+http://www.activestate.com/activetcl/downloads <br>
+> version:8.5.18.0
 
 socket format：
 ----
@@ -26,13 +26,10 @@ info: bit 13-4108(max):
 		--first one: destination%@%{senderName}%&%{message}; 
 		--the following: {message}%$%
 
-TRUE SORCE CODE:
+TRUE SOURCE CODE:
 main.py 
 
-failed attempts:
----
-client.py -- client
-
-server.py -- server
-
-common.py -- message processing for both client & server
+Run:
+----
+**command**: py main.py<br>
+**note**: start a server before any client is set up
