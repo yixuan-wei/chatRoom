@@ -1,6 +1,7 @@
 # chatRoom
 based on python socket ----for experiment of Computer Network 2017<br>
-created by: yixuan-wei & weiyue0307<br>
+**created by**: yixuan-wei & weiyue0307<br>
+**FinishDate**: 2017/12/31
 **requirements**: Python3, tkinter, PyQt5<br>
 **GitHub**: https://github.com/yixuan-wei/chatRoom
 
